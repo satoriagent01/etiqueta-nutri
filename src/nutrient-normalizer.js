@@ -102,14 +102,14 @@ export function convertSodiumToSalt(sodium) {
 
 /**
  * Normalise a unit string.
- * 'UI'/'iu' → 'IU', 'μg'/'µg'/'mcg' → 'µg'.
+ * 'iu' (lowercase only) → 'IU', 'μg'/'µg'/'mcg' → 'µg'.
+ * Everything else is returned as-is.
  */
 export function normalizeUnit(unit) {
   if (!unit || typeof unit !== 'string') return '';
   const u = unit.trim();
-  const low = u.toLowerCase();
-  if (low === 'ui' || low === 'iu') return 'IU';
-  if (low === 'μg' || low === 'µg' || low === 'mcg') return 'µg';
+  if (u.toLowerCase() === 'iu') return 'IU';
+  if (u === 'μg' || u === 'µg' || u.toLowerCase() === 'mcg') return 'µg';
   return u;
 }
 
