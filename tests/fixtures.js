@@ -476,6 +476,39 @@ export function makeMissingValuesOcrOutput() {
   };
 }
 
+// Aliases for tests that use shorter names
+export const schaarOCR = schaarOcrOutput;
+export const juiceOCR = juiceOcrOutput;
+export const sprayOCR = sprayOcrOutput;
+
+// Planner fixtures
+export const productsFixture = {
+  schar: {
+    id: "p-schar",
+    name: "Schär Waffeln",
+    brand: "Dr. Schär AG",
+    basis: "100 g",
+    serving: { amount: 30, unit: "g" },
+    nutrients: {
+      energy: { value: 2292, unit: "kJ" },
+      fat: { value: 33, unit: "g" },
+    },
+    warnings: [],
+  },
+};
+
+export const mealFixture = {
+  id: "m1",
+  date: "2024-01-15",
+  name: "Breakfast",
+  items: [{ productId: "p-schar", quantity: 60, unit: "g" }],
+};
+
+export const dayFixture = {
+  date: "2024-01-15",
+  meals: [mealFixture],
+};
+
 export default {
   schaarOcrOutput,
   juiceOcrOutput,
@@ -485,4 +518,7 @@ export default {
   makeLowConfidenceOcrOutput,
   makeInconsistentOcrOutput,
   makeMissingValuesOcrOutput,
+  productsFixture,
+  mealFixture,
+  dayFixture,
 };
