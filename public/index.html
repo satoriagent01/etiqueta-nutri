@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Etiqueta Nutri</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>🥗 Etiqueta Nutri</h1>
+    <nav id="nav-tabs">
+      <button class="tab active" data-tab="camera">📷 Foto</button>
+      <button class="tab" data-tab="library">📚 Biblioteca</button>
+      <button class="tab" data-tab="objectives">🎯 Objetivos</button>
+      <button class="tab" data-tab="planner">🍽️ Planner</button>
+      <button class="tab" data-tab="settings">⚙️</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Camera Screen -->
+    <section id="screen-camera" class="screen active">
+      <div id="camera-container">
+        <video id="camera-feed" autoplay playsinline></video>
+        <canvas id="camera-canvas" hidden></canvas>
+        <button id="btn-capture" class="btn btn-primary">📸 Tomar Foto</button>
+        <label for="file-input" class="btn btn-secondary">📁 Subir Archivo</label>
+        <input type="file" id="file-input" accept="image/*" hidden>
+      </div>
+      <div id="ocr-status" class="status"></div>
+      <div id="ocr-result" class="ocr-result hidden"></div>
+    </section>
+
+    <!-- Review Screen -->
+    <section id="screen-review" class="screen">
+      <h2>Revisar Datos</h2>
+      <div id="review-product-info"></div>
+      <div id="review-nutrients"></div>
+      <div id="review-warnings"></div>
+      <button id="btn-save-product" class="btn btn-primary">💾 Guardar Producto</button>
+      <button id="btn-cancel-review" class="btn btn-secondary">Cancelar</button>
+    </section>
+
+    <!-- Library Screen -->
+    <section id="screen-library" class="screen">
+      <h2>Biblioteca de Productos</h2>
+      <input type="text" id="search-products" placeholder="Buscar producto...">
+      <div id="product-list"></div>
+    </section>
+
+    <!-- Objectives Screen -->
+    <section id="screen-objectives" class="screen">
+      <h2>Objetivos Nutricionales</h2>
+      <div id="objectives-list"></div>
+      <button id="btn-add-objective" class="btn btn-primary">➕ Agregar Objetivo</button>
+      <div id="objective-form" class="hidden">
+        <input type="text" id="obj-nutrient" placeholder="Nutriente (ej: energía, grasa, sodio)">
+        <select id="obj-type">
+          <option value="max">Máximo</option>
+          <option value="min">Mínimo</option>
+          <option value="range">Rango</option>
+        </select>
+        <input type="number" id="obj-value" placeholder="Valor">
+        <input type="number" id="obj-min" placeholder="Mín (si rango)" step="0.1">
+        <input type="number" id="obj-max" placeholder="Máx (si rango)" step="0.1">
+        <button id="btn-save-objective" class="btn btn-primary">Guardar</button>
+      </div>
+      <div id="profile-status"></div>
+    </section>
+
+    <!-- Planner Screen -->
+    <section id="screen-planner" class="screen">
+      <h2>Planificador de Comidas</h2>
+      <div id="meal-items"></div>
+      <button id="btn-add-meal-item" class="btn btn-primary">➕ Agregar Producto</button>
+      <div id="meal-item-form" class="hidden">
+        <select id="meal-product-select"></select>
+        <input type="number" id="meal-quantity" placeholder="Cantidad (g/ml)" step="0.1">
+        <select id="meal-unit">
+          <option value="g">g</option>
+          <option value="ml">ml</option>
+        </select>
+        <button id="btn-save-meal-item" class="btn btn-primary">Agregar</button>
+      </div>
+      <div id="meal-totals"></div>
+      <div id="meal-warnings"></div>
+    </section>
+
+    <!-- Settings Screen -->
+    <section id="screen-settings" class="screen">
+      <h2>Configuración</h2>
+      <label for="ai-endpoint">Endpoint de IA:</label>
+      <input type="text" id="ai-endpoint" placeholder="https://api.openai.com/v1/chat/completions">
+      <label for="ai-key">Clave de IA:</label>
+      <input type="password" id="ai-key" placeholder="sk-...">
+      <label for="ai-model">Modelo:</label>
+      <input type="text" id="ai-model" placeholder="gpt-4-vision-preview">
+      <button id="btn-save-settings" class="btn btn-primary">Guardar</button>
+      <div id="settings-status"></div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
