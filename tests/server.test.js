@@ -1,10 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { spawn } from "node:child_process";
 
 // We test the server's HTTP behavior by starting it on a random port,
 // making requests, and checking responses.
-// The server is expected to be at server.js in the repo root.
+// The server is expected to be at src/server.js in the repo root.
 
 describe("server.js - HTTP server", () => {
   let server;
@@ -17,8 +18,7 @@ describe("server.js - HTTP server", () => {
     // or we can use a child process.
     // Let's use a child process approach for isolation.
     return new Promise((resolve, reject) => {
-      const { spawn } = require("child_process");
-      const child = spawn("node", ["server.js"], {
+      const child = spawn("node", ["src/server.js"], {
         env: { ...process.env, ...env },
         stdio: ["pipe", "pipe", "pipe"],
       });
