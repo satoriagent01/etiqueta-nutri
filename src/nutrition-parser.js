@@ -1,73 +1,164 @@
 /**
- * Parse nutrition table from OCR text.
- * Returns { nutrients: Map<string, number|null>, warnings: string[] }
+ * Parse nutrition table from OCR JSON output.
+ * Returns { nutrients: Map<string, Object>, warnings: Array<Object>, basis: string, serving: Object|null }
  */
 
-import { normalizeNutrientName, normalizeNutrientValue } from './nutrient-normalizer.js';
+import { normalizeLabel, parseValue, convertSaltToSodium } from './nutrient-normalizer.js';
 
 /**
- * Parse a nutrition table from OCR text.
- * Each line is expected to be in format: "Nutrient: value" or "Nutrient value"
- * @param {string} ocrText - Raw OCR text
- * @returns {{ nutrients: Map<string, number|null>, warnings: string[] }}
+ * Nutrient label → canonical key mapping (lowercase).
  */
-export function parseNutritionTable(ocrText) {
+const LABEL_MAP = {
+  'energy': 'energy',
+  'fett': 'fat', 'matières grasses': 'fat', 'vetten': 'fat', 'grassi': 'fat',
+  'fat': 'fat', 'gras': 'fat', 'graisse': 'fat', 'grasa': 'fat',
+  'davon gesättigte fettsäuren': 'saturated-fat',
+  'dont acides gras saturés': 'saturated-fat',
+  'verzadigde vetzuren': 'saturated-fat',
+  'acidi grassi saturi': 'saturated-fat',
+  'saturated fat': 'saturated-fat', 'saturated fats': 'saturated-fat',
+  'kohlenhydrate': 'carbohydrates', 'glucides': 'carbohydrates',
+  'koolhydraten': 'carbohydrates', 'carboidrati': 'carbohydrates',
+  'carbohydrates': 'carbohydrates', 'carbohidratos': 'carbohydrates',
+  'carbohydrate': 'carbohydrates', 'carbs': 'carbohydrates',
+  'davon zucker': 'sugars', 'dont sucres': 'sugars', 'suikers': 'sugars',
+  'zuccheri': 'sugars', 'sugars': 'sugars', 'azúcares': 'sugars',
+  'waarvan suikers': 'sugars',
+  'ballaststoffe': 'fiber', 'fibres': 'fiber', 'vezestoffen': 'fiber',
+  'fibre': 'fiber', 'fiber': 'fiber', 'fibras': 'fiber',
+  'dietary fiber': 'fiber', 'dietary fibres': 'fiber',
+  'eiweiß': 'protein', 'proteine': 'protein', 'eiwitten': 'protein',
+  'protéines': 'protein', 'protein': 'protein', 'proteínas': 'protein',
+  'proteïnen': 'protein',
+  'salz': 'salt', 'sel': 'salt', 'zout': 'salt', 'sale': 'salt',
+  'salt': 'salt', 'sal': 'salt',
+  'vitamine c': 'vitamin-c', 'vitamin c': 'vitamin-c',
+  'sodium': 'sodium',
+};
+
+/**
+ * Normalise a label string to its canonical English name.
+ */
+function normalizeLabel(label) {
+  if (!label || typeof label !== 'string') return '';
+  const trimmed = label.trim().toLowerCase();
+  return LABEL_MAP[trimmed] ?? trimmed;
+}
+
+/**
+ * Parse a numeric value from a string.
+ * Handles commas as decimal separators and < prefix.
+ */
+function parseValue(str) {
+  if (!str || typeof str !== 'string') return null;
+  const t = str.trim();
+  if (t === '' || t === '—' || t === '-') return null;
+  let cleaned = t;
+  if (cleaned.startsWith('<')) cleaned = cleaned.slice(1).trim();
+  cleaned = cleaned.replace(',', '.');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+// Required nutrients that should be present in a complete nutrition table.
+const REQUIRED_NUTRIENTS = ['energy', 'fat', 'saturated-fat', 'carbohydrates', 'sugars', 'protein', 'salt'];
+
+/**
+ * Parse an OCR output object into structured nutrition data.
+ * @param {Object} ocrData - { language, basis, serving, rows, warnings }
+ * @returns {{ nutrients: Map<string, Object>, warnings: Array<Object>, basis: string, serving: Object|null }}
+ */
+export function parseNutritionTable(ocrData) {
   const nutrients = new Map();
   const warnings = [];
 
-  if (!ocrText || typeof ocrText !== 'string' || ocrText.trim() === '') {
-    warnings.push('OCR text is empty');
-    return { nutrients, warnings };
+  // Extract basis info
+  let basis = '100g';
+  let basisType = 'per100g';
+  if (ocrData && ocrData.basis) {
+    if (ocrData.basis.unit === 'ml') {
+      basis = '100ml';
+      basisType = 'per100ml';
+    } else {
+      basis = '100g';
+      basisType = 'per100g';
+    }
   }
 
-  const lines = ocrText.split('\n');
+  // Extract serving info
+  let serving = null;
+  if (ocrData && ocrData.serving && ocrData.serving.amount) {
+    serving = {
+      amount: ocrData.serving.amount,
+      unit: ocrData.serving.unit,
+    };
+  }
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
+  // Parse rows
+  if (ocrData && ocrData.rows && Array.isArray(ocrData.rows)) {
+    for (const row of ocrData.rows) {
+      const label = row.label || '';
+      const canonical = normalizeLabel(label);
+      if (!canonical) continue;
 
-    // Try to parse "Nutrient: value" or "Nutrient value"
-    let nutrientName = null;
-    let rawValue = null;
+      // Get value from the basis column (per100g or per100ml)
+      const baseCol = row[basisType];
+      let value = null;
+      let unit = '';
 
-    // Pattern: "Nutrient: value" or "Nutrient - value" or "Nutrient value"
-    const colonMatch = line.match(/^(.+?)\s*[:\-–—]\s*(.+)$/);
-    if (colonMatch) {
-      nutrientName = colonMatch[1].trim();
-      rawValue = colonMatch[2].trim();
-    } else {
-      // Try "Nutrient value" - last token is value
-      const parts = line.split(/\s+/);
-      if (parts.length >= 2) {
-        // Try to find a numeric value at the end
-        const lastPart = parts[parts.length - 1];
-        const numMatch = lastPart.match(/^([0-9.,]+)\s*(g|mg|μg|µg|mcg|kj|kcal|ml)?$/i);
-        if (numMatch) {
-          nutrientName = parts.slice(0, -1).join(' ').trim();
-          rawValue = lastPart;
+      if (baseCol && baseCol.value !== undefined && baseCol.value !== null) {
+        value = baseCol.value;
+        unit = baseCol.unit || '';
+      } else if (row.value !== undefined && row.value !== null) {
+        value = row.value;
+        unit = row.unit || '';
+      }
+
+      if (value === null || value === undefined) {
+        // Check for ausente/dudoso markers
+        const rawText = (row.rawText || '').toLowerCase();
+        if (rawText.includes('ausente') || rawText.includes('afwezig')) {
+          warnings.push({ nutrient: canonical, status: 'pending', reason: 'ausente' });
+          nutrients.set(canonical, { value: null, unit: '', status: 'pending' });
+        } else {
+          nutrients.set(canonical, { value: null, unit: '', status: 'pending' });
         }
+        continue;
       }
-    }
 
-    if (!nutrientName || !rawValue) continue;
-
-    const canonicalName = normalizeNutrientName(nutrientName);
-    const value = normalizeNutrientValue(rawValue);
-
-    if (value === null) {
-      // Check if it's "ausente" or "dudoso"
-      const lowerVal = rawValue.toLowerCase().trim();
-      if (lowerVal === 'ausente') {
-        warnings.push(`${canonicalName}: ausente`);
-      } else if (lowerVal === 'dudoso') {
-        warnings.push(`${canonicalName}: dudoso`);
-      }
-      // Store as null for missing/dudoso/ausente
-      nutrients.set(canonicalName, null);
-    } else {
-      nutrients.set(canonicalName, value);
+      // Store the nutrient value
+      nutrients.set(canonical, {
+        value: value,
+        unit: unit,
+        source: basis,
+      });
     }
   }
 
-  return { nutrients, warnings };
+  // Add warnings from OCR
+  if (ocrData && ocrData.warnings && Array.isArray(ocrData.warnings)) {
+    for (const w of ocrData.warnings) {
+      if (w === 'sodium_not_present') {
+        warnings.push({ nutrient: 'sodium', status: 'pending', reason: 'not_in_table' });
+      }
+    }
+  }
+
+  // Check for missing required nutrients
+  for (const req of REQUIRED_NUTRIENTS) {
+    if (!nutrients.has(req)) {
+      // Check if we already have a warning for this nutrient
+      const existingWarning = warnings.find(w => w.nutrient === req);
+      if (!existingWarning) {
+        warnings.push({ nutrient: req, status: 'pending', reason: 'not_in_table' });
+      }
+    }
+  }
+
+  return {
+    nutrients,
+    warnings,
+    basis,
+    serving,
+  };
 }
