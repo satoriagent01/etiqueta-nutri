@@ -1,0 +1,12 @@
+{
+  "name": "etiqueta-nutri",
+  "version": "1.0.0",
+  "description": "Nutritional label tracker with OCR, custom objectives, and meal planner",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "start": "node server.js"
+  },
+  "keywords": ["nutrition", "ocr", "meal-planner"],
+  "license": "MIT"
+}
