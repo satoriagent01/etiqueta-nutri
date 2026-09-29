@@ -3,7 +3,7 @@
  * Returns { nutrients: Map<string, Object>, warnings: Array<Object>, basis: string, serving: Object|null }
  */
 
-import { normalizeLabel, parseValue, convertSaltToSodium } from './nutrient-normalizer.js';
+import { normalizeLabel as normLabel, parseValue, convertSaltToSodium } from './nutrient-normalizer.js';
 
 /**
  * Nutrient label → canonical key mapping (lowercase).
@@ -39,7 +39,7 @@ const LABEL_MAP = {
 /**
  * Normalise a label string to its canonical English name.
  */
-function normalizeLabel(label) {
+function _normalizeLabel(label) {
   if (!label || typeof label !== 'string') return '';
   const trimmed = label.trim().toLowerCase();
   return LABEL_MAP[trimmed] ?? trimmed;
@@ -49,7 +49,7 @@ function normalizeLabel(label) {
  * Parse a numeric value from a string.
  * Handles commas as decimal separators and < prefix.
  */
-function parseValue(str) {
+function _parseValue(str) {
   if (!str || typeof str !== 'string') return null;
   const t = str.trim();
   if (t === '' || t === '—' || t === '-') return null;
@@ -98,7 +98,7 @@ export function parseNutritionTable(ocrData) {
   if (ocrData && ocrData.rows && Array.isArray(ocrData.rows)) {
     for (const row of ocrData.rows) {
       const label = row.label || '';
-      const canonical = normalizeLabel(label);
+      const canonical = _normalizeLabel(label);
       if (!canonical) continue;
 
       // Get value from the basis column (per100g or per100ml)
