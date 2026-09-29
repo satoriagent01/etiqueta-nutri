@@ -55,6 +55,9 @@ export function normalizeLabel(label) {
   return trimmed;
 }
 
+/** Alias for normalizeLabel - used by nutrition-parser */
+export const normalizeNutrientName = normalizeLabel;
+
 /**
  * Parse a numeric value from a string.
  * Handles commas as decimal separators and < prefix.
@@ -82,6 +85,9 @@ export function parseValue(str) {
 
   return isLessThan ? num : num;
 }
+
+/** Alias for parseValue - used by nutrition-parser */
+export const normalizeNutrientValue = parseValue;
 
 /**
  * Convert kilojoules to kilocalories (rounded).
