@@ -1,135 +1,101 @@
 /**
- * src/storage.js — In-memory storage adapter for products, meals, objectives, profiles.
- *
- * Implements the storage contract expected by the planner and server modules.
- * All data is held in memory (no persistence layer).
+ * Storage abstraction - works in browser (localStorage) and Node (memory).
  */
 
 /**
- * Creates an in-memory storage instance.
- * @returns {Object} Storage adapter with CRUD methods.
+ * Create a storage instance.
+ * @param {Object} options
+ * @param {Function} options.getWindow - Returns window object (browser) or null (Node)
+ * @returns {Object}
  */
-export function createStorage() {
-  const products = new Map();
-  const meals = new Map();
-  const profiles = new Map();
-  let objectives = [];
+export function createStorage(options = {}) {
+  const { getWindow = () => (typeof window !== 'undefined' ? window : null) } = options;
+
+  const store = new Map();
+  const window = getWindow();
+  const useLocalStorage = window && window.localStorage;
+
+  // Load from localStorage if available
+  if (useLocalStorage) {
+    try {
+      const data = window.localStorage.getItem('etiqueta-nutri');
+      if (data) {
+        const parsed = JSON.parse(data);
+        for (const [key, value] of Object.entries(parsed)) {
+          store.set(key, value);
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
 
   return {
     /**
-     * Save a product.
-     * @param {Object} product - Product object with id, name, basis, nutrients, warnings, etc.
+     * Get a value from storage.
+     * @param {string} key
+     * @returns {*}
      */
-    saveProduct(product) {
-      products.set(product.id, { ...product });
+    get(key) {
+      return store.get(key);
     },
 
     /**
-     * Get a product by id.
-     * @param {string} id - Product id.
-     * @returns {Object|undefined} Product or undefined.
+     * Set a value in storage.
+     * @param {string} key
+     * @param {*} value
      */
-    getProduct(id) {
-      return products.get(id);
+    set(key, value) {
+      store.set(key, value);
+      if (useLocalStorage) {
+        try {
+          window.localStorage.setItem('etiqueta-nutri', JSON.stringify(Object.fromEntries(store)));
+        } catch (e) {
+          // Ignore quota errors
+        }
+      }
     },
 
     /**
-     * List all products.
-     * @returns {Object[]} Array of all products.
+     * Remove a value from storage.
+     * @param {string} key
      */
-    listProducts() {
-      return Array.from(products.values());
+    remove(key) {
+      store.delete(key);
+      if (useLocalStorage) {
+        try {
+          window.localStorage.removeItem('etiqueta-nutri');
+          const remaining = {};
+          for (const [k, v] of store) {
+            remaining[k] = v;
+          }
+          window.localStorage.setItem('etiqueta-nutri', JSON.stringify(remaining));
+        } catch (e) {
+          // Ignore errors
+        }
+      }
     },
 
     /**
-     * Delete a product by id.
-     * @param {string} id - Product id.
+     * Clear all storage.
      */
-    deleteProduct(id) {
-      products.delete(id);
+    clear() {
+      store.clear();
+      if (useLocalStorage) {
+        try {
+          window.localStorage.removeItem('etiqueta-nutri');
+        } catch (e) {
+          // Ignore errors
+        }
+      }
     },
 
     /**
-     * Save a meal.
-     * @param {Object} meal - Meal object with id, date, name, items.
+     * Get all entries.
+     * @returns {Map<string, *>}
      */
-    saveMeal(meal) {
-      meals.set(meal.id, { ...meal });
-    },
-
-    /**
-     * Get a meal by id.
-     * @param {string} id - Meal id.
-     * @returns {Object|undefined} Meal or undefined.
-     */
-    getMeal(id) {
-      return meals.get(id);
-    },
-
-    /**
-     * List meals by date.
-     * @param {string} date - Date string (YYYY-MM-DD).
-     * @returns {Object[]} Array of meals for the given date.
-     */
-    listMealsByDate(date) {
-      return Array.from(meals.values()).filter(m => m.date === date);
-    },
-
-    /**
-     * Delete a meal by id.
-     * @param {string} id - Meal id.
-     */
-    deleteMeal(id) {
-      meals.delete(id);
-    },
-
-    /**
-     * Save objectives (replaces all).
-     * @param {Object[]} objs - Array of objective objects.
-     */
-    saveObjectives(objs) {
-      objectives = objs.map(o => ({ ...o }));
-    },
-
-    /**
-     * Get all objectives.
-     * @returns {Object[]} Array of objective objects.
-     */
-    getObjectives() {
-      return [...objectives];
-    },
-
-    /**
-     * Save a profile.
-     * @param {Object} profile - Profile object with id, name, objectives.
-     */
-    saveProfile(profile) {
-      profiles.set(profile.id, { ...profile });
-    },
-
-    /**
-     * Get a profile by id.
-     * @param {string} id - Profile id.
-     * @returns {Object|undefined} Profile or undefined.
-     */
-    getProfile(id) {
-      return profiles.get(id);
-    },
-
-    /**
-     * List all profiles.
-     * @returns {Object[]} Array of all profiles.
-     */
-    listProfiles() {
-      return Array.from(profiles.values());
-    },
-
-    /**
-     * Delete a profile by id.
-     * @param {string} id - Profile id.
-     */
-    deleteProfile(id) {
-      profiles.delete(id);
+    getAll() {
+      return new Map(store);
     },
   };
 }
